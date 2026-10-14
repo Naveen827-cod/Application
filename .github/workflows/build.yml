@@ -59,34 +59,14 @@ jobs:
         run: |
           set -e
           PROJECT_DIR=$(dirname "$(find /tmp/src -name 'settings.gradle' -type f | head -1)")
-          echo "Project dir: $PROJECT_DIR"
-
           APP_DIR="$PROJECT_DIR/app"
           if [ ! -d "$APP_DIR" ]; then
             APP_DIR=$(dirname "$(find /tmp/src -name 'AndroidManifest.xml' -path '*/app/*' -type f | head -1)")
           fi
-          echo "App dir: $APP_DIR"
-
           VALUES_DIR="$APP_DIR/src/main/res/values"
           mkdir -p "$VALUES_DIR"
           COLORS_FILE="$VALUES_DIR/colors.xml"
-
-          if [ -f "$COLORS_FILE" ]; then
-            echo "Existing colors.xml:"
-            cat "$COLORS_FILE"
-            if ! grep -q 'name="text_dark"' "$COLORS_FILE"; then
-              echo "Adding text_dark..."
-              sed -i 's|</resources>|    <color name="text_dark">#000000</color>\n</resources>|' "$COLORS_FILE"
-            fi
-          else
-            echo "Creating colors.xml..."
-            echo '<?xml version="1.0" encoding="utf-8"?>' > "$COLORS_FILE"
-            echo '<resources>' >> "$COLORS_FILE"
-            echo '    <color name="text_dark">#000000</color>' >> "$COLORS_FILE"
-            echo '    <color name="text_light">#FFFFFF</color>' >> "$COLORS_FILE"
-            echo '</resources>' >> "$COLORS_FILE"
-          fi
-
+          printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' '<resources>' '    <color name="text_dark">#000000</color>' '    <color name="text_light">#FFFFFF</color>' '</resources>' > "$COLORS_FILE"
           echo "Final colors.xml:"
           cat "$COLORS_FILE"
 
@@ -94,7 +74,6 @@ jobs:
         run: |
           set -e
           PROJECT_DIR=$(dirname "$(find /tmp/src -name 'settings.gradle' -type f | head -1)")
-          echo "Project dir: $PROJECT_DIR"
           cd "$PROJECT_DIR"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           chmod +x gradlew
