@@ -120,4 +120,31 @@ EOF
         with:
           name: app-debug-apk
           path: /tmp/src/**/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn          fi
+          
+          echo "=== Final colors.xml ==="
+          cat "$COLORS_FILE"
+
+      - name: Build Debug APK
+        run: |
+          set -e
+          PROJECT_DIR=$(dirname "$(find /tmp/src -name 'settings.gradle' -type f | head -1)")
+          echo "Project dir: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          chmod +x gradlew
+          
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Find APK
+        if: always()
+        run: find /tmp/src -name "*.apk" -type f
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: /tmp/src/**/app/build/outputs/apk/debug/*.apk
           if-no-files-found: warn
