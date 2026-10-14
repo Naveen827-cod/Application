@@ -32,34 +32,27 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Android cmdline-tools
+      - name: Setup Android SDK env
         run: |
           set -e
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          cd /tmp
-          curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d /tmp/cmdline-tools-temp
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          mv /tmp/cmdline-tools-temp/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
-          rm -rf /tmp/cmdline-tools-temp /tmp/cmdline-tools.zip
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          sdkmanager --version
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager -type f | head -1)
+          fi
+          echo "sdkmanager: $SDKMANAGER"
+          "$SDKMANAGER" --version
+          echo "$(dirname $SDKMANAGER)" >> $GITHUB_PATH
 
       - name: Install SDK packages
         run: |
           set -e
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+          yes | sdkmanager --licenses || true
+          yes | sdkmanager \
             "platform-tools" \
             "platforms;android-${ANDROID_API_LEVEL}" \
             "build-tools;${BUILD_TOOLS_VERSION}" || true
           echo "=== Installed packages ==="
-          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --list_installed
-
-      - name: Accept licenses (final)
-        run: |
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
+          sdkmanager --list_installed || true
 
       - name: Build Debug APK
         run: |
