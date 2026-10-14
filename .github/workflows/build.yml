@@ -12,14 +12,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Show repo contents
+        run: |
+          echo "=== Repo root ==="
+          ls -la
+          echo "=== Find all zips ==="
+          find . -name "*.zip" -type f
+
       - name: Extract source zip
         run: |
+          ZIP=$(find . -maxdepth 2 -name "*.zip" -type f | head -1)
+          echo "Found zip: $ZIP"
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: No zip found!"
+            exit 1
+          fi
           mkdir -p source
-          unzip -o NaveenRx100.zip -d source
-          echo "=== Source structure ==="
+          unzip -o "$ZIP" -d source
+          echo "=== Extracted contents ==="
           ls -la source
-          echo "=== Looking for project root ==="
+          echo "=== Find settings.gradle ==="
           find source -name "settings.gradle" -type f
+          echo "=== Find gradlew ==="
           find source -name "gradlew" -type f
 
       - name: Setup Java 17
@@ -34,14 +48,28 @@ jobs:
       - name: Build Debug APK
         run: |
           PROJECT_ROOT=$(dirname "$(find source -name 'settings.gradle' -type f | head -1)")
+          if [ -z "$PROJECT_ROOT" ] || [ "$PROJECT_ROOT" = "." ]; then
+            echo "ERROR: settings.gradle not found!"
+            echo "Source tree:"
+            find source -maxdepth 3 -type f | head -50
+            exit 1
+          fi
           echo "Project root: $PROJECT_ROOT"
           cd "$PROJECT_ROOT"
           chmod +x gradlew
+          ls -la gradlew gradle/wrapper/ 2>&1 || true
           ./gradlew :app:assembleDebug --stacktrace
 
+      - name: Find APK
+        if: always()
+        run: |
+          echo "=== Searching for APK ==="
+          find source -name "*.apk" -type f
+
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: source/**/app/build/outputs/apk/debug/app-debug.apk
+          path: source/**/app/build/outputs/apk/debug/*.apk
           if-no-files-found: warn
