@@ -25,9 +25,7 @@ jobs:
           echo "Found zip: $ZIP"
           mkdir -p /tmp/src
           unzip -o "$ZIP" -d /tmp/src
-          echo "=== Finding settings.gradle ==="
           find /tmp/src -name "settings.gradle" -type f
-          echo "=== Finding colors.xml files ==="
           find /tmp/src -name "colors.xml" -type f
 
       - name: Setup Java 17
@@ -62,40 +60,34 @@ jobs:
           set -e
           PROJECT_DIR=$(dirname "$(find /tmp/src -name 'settings.gradle' -type f | head -1)")
           echo "Project dir: $PROJECT_DIR"
-          
-          # Find app module
+
           APP_DIR="$PROJECT_DIR/app"
           if [ ! -d "$APP_DIR" ]; then
             APP_DIR=$(dirname "$(find /tmp/src -name 'AndroidManifest.xml' -path '*/app/*' -type f | head -1)")
           fi
           echo "App dir: $APP_DIR"
-          
+
           VALUES_DIR="$APP_DIR/src/main/res/values"
           mkdir -p "$VALUES_DIR"
-          
           COLORS_FILE="$VALUES_DIR/colors.xml"
-          
+
           if [ -f "$COLORS_FILE" ]; then
-            echo "=== Existing colors.xml ==="
+            echo "Existing colors.xml:"
             cat "$COLORS_FILE"
-            # Check if text_dark is defined
             if ! grep -q 'name="text_dark"' "$COLORS_FILE"; then
-              echo "Adding text_dark to existing colors.xml..."
-              # Insert before </resources>
+              echo "Adding text_dark..."
               sed -i 's|</resources>|    <color name="text_dark">#000000</color>\n</resources>|' "$COLORS_FILE"
             fi
           else
-            echo "Creating new colors.xml..."
-            cat > "$COLORS_FILE" <<'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="text_dark">#000000</color>
-    <color name="text_light">#FFFFFF</color>
-</resources>
-EOF
+            echo "Creating colors.xml..."
+            echo '<?xml version="1.0" encoding="utf-8"?>' > "$COLORS_FILE"
+            echo '<resources>' >> "$COLORS_FILE"
+            echo '    <color name="text_dark">#000000</color>' >> "$COLORS_FILE"
+            echo '    <color name="text_light">#FFFFFF</color>' >> "$COLORS_FILE"
+            echo '</resources>' >> "$COLORS_FILE"
           fi
-          
-          echo "=== Final colors.xml ==="
+
+          echo "Final colors.xml:"
           cat "$COLORS_FILE"
 
       - name: Build Debug APK
@@ -104,38 +96,13 @@ EOF
           PROJECT_DIR=$(dirname "$(find /tmp/src -name 'settings.gradle' -type f | head -1)")
           echo "Project dir: $PROJECT_DIR"
           cd "$PROJECT_DIR"
-          
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           chmod +x gradlew
-          
-          ./gradlew :app:assembleDebug --stacktrace --no-daemon
-
-      - name: Find APK
-        if: always()
-        run: find /tmp/src -name "*.apk" -type f
-
-      - name: Upload APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: /tmp/src/**/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn          fi
-          
-          echo "=== Final colors.xml ==="
-          cat "$COLORS_FILE"
-
-      - name: Build Debug APK
-        run: |
-          set -e
-          PROJECT_DIR=$(dirname "$(find /tmp/src -name 'settings.gradle' -type f | head -1)")
-          echo "Project dir: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
-          
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          chmod +x gradlew
-          
-          ./gradlew :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee /tmp/build.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "=== Errors: ==="
+          grep -i "error:" /tmp/build.log | head -30 || true
+          exit $EXIT_CODE
 
       - name: Find APK
         if: always()
